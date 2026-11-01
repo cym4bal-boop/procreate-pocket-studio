@@ -455,7 +455,9 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
       // undo/redo history survives leaving the canvas; never wipe stacks the user
       // already started building while the async load was in flight
       void loadHistory(artwork.id).then((h) => {
-        if (!h || cancelled) return;
+        if (cancelled) return;
+        historyLoaded.current = true; // only now may saves replace the stored stacks
+        if (!h) { if (undoStack.current.length || redoStack.current.length) void saveHistory(artwork.id, undoStack.current, redoStack.current); return; }
         if (undoStack.current.length > 0 || redoStack.current.length > 0) {
           // edits made while loading are newer: keep them on top of the saved undo steps;
           // the saved redo branch no longer applies once new edits exist
@@ -682,7 +684,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
     persistHistory();
   };
   // Incremental, debounced IndexedDB write of both stacks (encoded snapshots are cached per entry).
-  const persistHistory = () => { void saveHistory(artwork.id, undoStack.current, redoStack.current); };
+  const persistHistory = () => { if (!historyLoaded.current) return; void saveHistory(artwork.id, undoStack.current, redoStack.current); };
   const pushHistory = (ids: string[] = [], rect?: Rect) => pushEntry(capture(ids, rect));
   const restore = (e: HistEntry) => {
     const byId = new Map(layersRef.current.map((l) => [l.id, l]));
@@ -742,6 +744,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
 
   /* ---------- saving ---------- */
   const changedSinceOpen = useRef(false);
+  const historyLoaded = useRef(false);
   const bump = () => { changedSinceOpen.current = true; setVersion((v) => v + 1); requestRender(); scheduleSave(); };
   const markDirty = (id: string) => { dirty.current.add(id); bump(); };
   const scheduleSave = () => {

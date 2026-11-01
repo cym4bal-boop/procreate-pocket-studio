@@ -313,7 +313,9 @@ export function translateCustomJsonBrush(data: Record<string, any>, rawName = 'C
     taper: sizePres ? 0.3 : 0.01,
     taperSize: sizePres ? 0.8 : 0,
     taperOpacity: 0,
-    grain: hasTex ? Math.max(0.35, Math.min(0.9, 0.35 + n(tex['pressure'], 0.5) * 0.5)) : 0,
+    // texturized grain is punched per dab, so it needs full depth and contrast to survive dab overlap
+    grain: hasTex ? Math.min(1, 0.8 + n(tex['pressure'], 0.5) * 0.2) : 0,
+    grainContrast: hasTex ? 0.9 : 0,
     grainImage: hasTex ? textureImage(texName) : undefined,
     grainScale: Math.max(0.1, Math.min(3, n(tex['scale'], 1))),
     grainMode: 'texturized',

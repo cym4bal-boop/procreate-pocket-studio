@@ -327,6 +327,7 @@ function seeded(seed: number) {
   return () => ((s = (s * 16807) % 2147483647) / 2147483647);
 }
 
+import { proceduralCanvas } from './brush-heads';
 const headImages = new Map<string, HTMLImageElement>();
 const headKey = (src?: string) => (src ? `${src.length}:${src.slice(-24)}` : '');
 /** Loads a custom head image; resolves once it can be stamped. */
@@ -342,9 +343,10 @@ export function loadBrushHead(src: string): Promise<void> {
   });
 }
 
-function drawHead(ctx: CanvasRenderingContext2D, img: HTMLImageElement, px: number) {
-  const s = Math.min(px / img.naturalWidth, px / img.naturalHeight);
-  const w = img.naturalWidth * s, h = img.naturalHeight * s;
+function drawHead(ctx: CanvasRenderingContext2D, img: HTMLImageElement | HTMLCanvasElement, px: number) {
+  const iw = (img as HTMLImageElement).naturalWidth || img.width, ih = (img as HTMLImageElement).naturalHeight || img.height;
+  const s = Math.min(px / iw, px / ih);
+  const w = iw * s, h = ih * s;
   ctx.drawImage(img, (px - w) / 2, (px - h) / 2, w, h);
   const data = ctx.getImageData(0, 0, px, px);
   const d = data.data;
@@ -367,9 +369,10 @@ function tipShape(brush: BrushDef, px = TIP) {
   c.width = c.height = px;
   const ctx = c.getContext('2d')!;
   const r = px / 2;
-  const head = brush.tipImage ? headImages.get(headKey(brush.tipImage)) : undefined;
+  const proc = proceduralCanvas(brush.tipImage);
+  const head: HTMLImageElement | HTMLCanvasElement | undefined = proc ?? (brush.tipImage ? headImages.get(headKey(brush.tipImage)) : undefined);
   if (brush.tipImage && !head) void loadBrushHead(brush.tipImage);
-  if (head?.complete && head.naturalWidth) {
+  if (head && (proc || ((head as HTMLImageElement).complete && (head as HTMLImageElement).naturalWidth))) {
     ctx.save();
     ctx.translate(r, r); ctx.rotate((brush.angle * Math.PI) / 180); ctx.scale(1, brush.roundness); ctx.translate(-r, -r);
     const tmp = document.createElement('canvas'); tmp.width = tmp.height = px;
@@ -534,6 +537,8 @@ let proceduralGrain: HTMLCanvasElement | null = null;
 /** Grain source: the brush's own Grain.png, else a paper-like procedural texture. */
 function grainSource(brush: BrushDef): HTMLCanvasElement | HTMLImageElement {
   if (brush.grainImage) {
+    const pc = proceduralCanvas(brush.grainImage);
+    if (pc) return pc;
     const k = headKey(brush.grainImage);
     let img = grainImages.get(k);
     if (!img) { img = new Image(); img.crossOrigin = 'anonymous'; img.src = brush.grainImage; grainImages.set(k, img); }

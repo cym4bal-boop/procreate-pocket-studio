@@ -32,6 +32,9 @@ export function headStyle(name: string): HeadStyle {
 
 const S = 128;
 const cache = new Map<string, string>();
+const canvases = new Map<string, HTMLCanvasElement>();
+/** The canvas behind a procedural data URL, so the engine can stamp it synchronously (no image decode wait). */
+export function proceduralCanvas(url?: string): HTMLCanvasElement | undefined { return url ? canvases.get(url) : undefined; }
 
 function canvas(px: number) {
   const c = document.createElement('canvas'); c.width = c.height = px;
@@ -105,7 +108,9 @@ function drawHead(style: HeadStyle, r: Rng): string | undefined {
       x.closePath(); x.fill();
       break;
   }
-  return c.toDataURL('image/png');
+  const url = c.toDataURL('image/png');
+  canvases.set(url, c);
+  return url;
 }
 
 /** Head image (data URL) for a pack head name, or undefined for engine-drawn round/oval tips. */
@@ -172,6 +177,7 @@ export function textureImage(name: string): string | undefined {
   }
   x.putImageData(d, 0, 0);
   const url = c.toDataURL('image/png');
+  canvases.set(url, c);
   cache.set(key, url);
   return url;
 }

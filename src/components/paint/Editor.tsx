@@ -1798,6 +1798,8 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
       case 'guide': void runAction('guide'); break;
       case 'add-text': void runAction('add-text'); break;
       case 'export-png': void runAction('export-png'); break;
+      case 'fill-layer': layerAction(id, 'fill'); break;
+      case 'none': break;
     }
   };
   const runAction = async (a: ActionId) => {

@@ -1,7 +1,6 @@
 import presets from './painter-brushes.json';
 import { brushLibrary, pristineSupplied, cleanBrushName, personalBrushIds } from './brushes';
 import { translateCustomJsonBrush, translateMyPaintBrush } from './brush-translator';
-import { procreatePresets } from './procreate-library';
 
 const PACKS: Record<string, { label: string; author?: string }> = {
   classic: { label: 'Classic', author: 'MyPaint' },
@@ -49,13 +48,9 @@ export function installSuppliedLibrary() {
   // Keep personal imports and copies, replacing the previous supplied/default library.
   const personal = brushLibrary.filter((b) => personalBrushIds.has(b.id));
   brushLibrary.splice(0, brushLibrary.length, ...personal);
-  for (const brush of procreatePresets) {
-    if (!brushLibrary.some((b) => b.id === brush.id)) brushLibrary.push(brush);
-    pristineSupplied.add(brush.id);
-  }
   let n = 0;
   for (const preset of presets as { path: string; kind: string; data: Record<string, unknown> }[]) {
-    const id = `supplied-${preset.kind}-${preset.path.replace(/[^a-z0-9]/gi, '-')}`;
+    const id = `pack2-${preset.kind}-${preset.path.replace(/[^a-z0-9]/gi, '-')}`;
     if (brushLibrary.some((b) => b.id === id)) continue;
     const parts = preset.path.split('/');
     const file = parts.at(-1) ?? preset.path;

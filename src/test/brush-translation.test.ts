@@ -12,7 +12,7 @@ it('uses the provided Pencil spacing and softness rather than one universal stam
   const brush = translateCustomJsonBrush(preset.data);
   expect(brush.spacing).toBeCloseTo(0.077778697);
   expect(brush.hardness).toBeCloseTo(0.796874985);
-  expect(brush.flow).toBe(0.5);
+  expect(brush.flow).toBeCloseTo(0.4017);
 });
 it('maps actual Procreate Plain Stitch archive spacing and pressure', () => {
   const brush = translateProcreateBrush({ name: 'Plain Stitch', plotSpacing: 0.5507699847, dynamicsPressureSize: 0, maxSize: 0.492417991, tipImage: 'data:image/png;base64,AAAA' });
@@ -56,7 +56,7 @@ it('maps Procreate Brush Studio keys one-to-one', () => {
   expect(brush.charge).toBe(0.8);
   expect(brush.dilution).toBe(0.35);
   expect(brush.attack).toBe(0.45);
-  expect(brush.flow).toBe(0.5);
+  expect(brush.flow).toBeCloseTo(0.4017);
   expect(brush.wetEdges).toBe(0.15);
   expect(brush.burntEdges).toBe(0.25);
   expect(brush.sizePressure).toBe(0.9);

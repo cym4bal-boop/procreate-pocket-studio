@@ -35,7 +35,7 @@ const cache = new Map<string, string>();
 
 function canvas(px: number) {
   const c = document.createElement('canvas'); c.width = c.height = px;
-  return [c, c.getContext('2d', { willReadFrequently: true })!] as const;
+  return [c, c.getContext('2d', { willReadFrequently: true })] as const;
 }
 
 function noiseOut(x: CanvasRenderingContext2D, px: number, r: Rng, amount: number, cell = 1) {
@@ -58,6 +58,7 @@ function softDisc(x: CanvasRenderingContext2D, cx: number, cy: number, rad: numb
 function drawHead(style: HeadStyle, r: Rng): string | undefined {
   if (style === 'round' || style === 'soft' || style === 'oval') return undefined; // engine draws these from hardness/roundness
   const [c, x] = canvas(S); const m = S / 2;
+  if (!x) return undefined;
   x.fillStyle = '#fff';
   switch (style) {
     case 'ring':
@@ -138,6 +139,7 @@ export function textureImage(name: string): string | undefined {
   if (cache.has(key)) return cache.get(key) || undefined;
   const P = 256, r = rngFor(name), style = textureStyle(name);
   const [c, x] = canvas(P);
+  if (!x) return undefined;
   const d = x.createImageData(P, P);
   // tileable value noise, a few octaves
   const oct = (cells: number) => {

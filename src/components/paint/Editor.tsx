@@ -776,7 +776,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
     finishTransientModes();
     const a = await save();
     // keep the undo/redo stacks for next time, and snapshot a restorable backup
-    void saveHistory(artwork.id, undoStack.current, redoStack.current);
+    persistHistory();
     if (changedSinceOpen.current) void saveBackup(a);
     onExit(a);
   };

@@ -1451,17 +1451,23 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
   };
   const adjustFrame = useRef<number | undefined>(undefined);
   const adjScratch = useRef<HTMLCanvasElement | null>(null);
-  const renderDirect = (a: AdjState) => {
+  const adjFinal = useRef<number | undefined>(undefined);
+  const adjSmall = useRef<HTMLCanvasElement | null>(null);
+  /* While the value is moving, the effect runs on a downscaled copy (≤ ~1.2 MP) so swiping
+   * stays smooth on big canvases; ~160 ms after the last change it re-renders at full size. */
+  const renderDirect = (a: AdjState, final = false) => {
     if (adjustFrame.current) cancelAnimationFrame(adjustFrame.current);
+    window.clearTimeout(adjFinal.current);
     adjustFrame.current = requestAnimationFrame(() => {
       const layer = layersRef.current.find((l) => l.id === a.layerId);
       if (!layer) return;
-      // one reusable scratch canvas instead of a new full-size canvas every frame
-      let fx = adjScratch.current;
-      if (!fx || fx.width !== W || fx.height !== H) fx = adjScratch.current = makeCanvas(W, H);
+      const k = final ? 1 : Math.min(1, Math.sqrt(1_200_000 / (W * H)));
+      const w = Math.max(1, Math.round(W * k)), h = Math.max(1, Math.round(H * k));
+      let fx = k === 1 ? adjScratch.current : adjSmall.current;
+      if (!fx || fx.width !== w || fx.height !== h) { fx = makeCanvas(w, h); if (k === 1) adjScratch.current = fx; else adjSmall.current = fx; }
       const fc = ctx2d(fx);
-      fc.clearRect(0, 0, W, H);
-      fc.drawImage(a.base, 0, 0);
+      fc.clearRect(0, 0, w, h);
+      fc.drawImage(a.base, 0, 0, w, h);
       if (!a.hidden) applyCanvasEffect(fx, a.name, layerValueOf(a.name, a.params), a.params);
       const c = ctx2d(layer.canvas);
       c.clearRect(0, 0, W, H);
@@ -1470,10 +1476,11 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
         c.save();
         c.clip(selectionRef.current.path, 'evenodd');
         c.clearRect(0, 0, W, H);
-        c.drawImage(fx, 0, 0);
+        c.drawImage(fx, 0, 0, W, H);
         c.restore();
-      } else c.drawImage(fx, 0, 0);
+      } else c.drawImage(fx, 0, 0, W, H);
       markDirty(layer.id);
+      if (k < 1) adjFinal.current = window.setTimeout(() => { if (adjustRef.current === a || adjustRef.current?.params === a.params) renderDirect(adjustRef.current ?? a, true); }, 160);
     });
   };
   /** Old call sites: set the swipe amount (and optionally params) of the running adjustment. */

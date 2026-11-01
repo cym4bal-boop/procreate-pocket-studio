@@ -456,10 +456,16 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
       // already started building while the async load was in flight
       void loadHistory(artwork.id).then((h) => {
         if (!h || cancelled) return;
-        if (undoStack.current.length > 0 || redoStack.current.length > 0) return;
-        undoStack.current = h.undo;
-        redoStack.current = h.redo;
-        setHistoryInfo({ undo: h.undo.length, redo: h.redo.length });
+        if (undoStack.current.length > 0 || redoStack.current.length > 0) {
+          // edits made while loading are newer: keep them on top of the saved undo steps;
+          // the saved redo branch no longer applies once new edits exist
+          undoStack.current = [...h.undo, ...undoStack.current];
+          void saveHistory(artwork.id, undoStack.current, redoStack.current);
+        } else {
+          undoStack.current = h.undo;
+          redoStack.current = h.redo;
+        }
+        setHistoryInfo({ undo: undoStack.current.length, redo: redoStack.current.length });
       });
     })();
     return () => { cancelled = true; };
@@ -673,7 +679,10 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
     while (total > HISTORY_BYTES && undoStack.current.length > 1) total -= bytes(undoStack.current.shift()!);
     while (undoStack.current.length > Math.max(5, prefsRef.current.historyLimit || 60)) undoStack.current.shift();
     setHistoryInfo({ undo: undoStack.current.length, redo: 0 });
+    persistHistory();
   };
+  // Incremental, debounced IndexedDB write of both stacks (encoded snapshots are cached per entry).
+  const persistHistory = () => { void saveHistory(artwork.id, undoStack.current, redoStack.current); };
   const pushHistory = (ids: string[] = [], rect?: Rect) => pushEntry(capture(ids, rect));
   const restore = (e: HistEntry) => {
     const byId = new Map(layersRef.current.map((l) => [l.id, l]));
@@ -716,6 +725,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
     redoStack.current.push(inverseOf(e));
     restore(e);
     setHistoryInfo({ undo: undoStack.current.length, redo: redoStack.current.length });
+    persistHistory();
     flash('Undo');
   };
   const redo = () => {
@@ -726,6 +736,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
     undoStack.current.push(inverseOf(e));
     restore(e);
     setHistoryInfo({ undo: undoStack.current.length, redo: redoStack.current.length });
+    persistHistory();
     flash('Redo');
   };
 

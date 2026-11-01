@@ -1455,10 +1455,21 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
   const adjSmall = useRef<HTMLCanvasElement | null>(null);
   /* While the value is moving, the effect runs on a downscaled copy (≤ ~1.2 MP) so swiping
    * stays smooth on big canvases; ~160 ms after the last change it re-renders at full size. */
+  const adjLowRes = useRef(false);
   const renderDirect = (a: AdjState, final = false) => {
     if (adjustFrame.current) cancelAnimationFrame(adjustFrame.current);
     window.clearTimeout(adjFinal.current);
-    adjustFrame.current = requestAnimationFrame(() => {
+    adjustFrame.current = requestAnimationFrame(() => paintAdjust(a, final));
+  };
+  /** Before committing, make sure the layer holds the full-resolution result. */
+  const flushAdjust = () => {
+    const a = adjustRef.current;
+    if (adjustFrame.current) cancelAnimationFrame(adjustFrame.current);
+    window.clearTimeout(adjFinal.current);
+    if (a && adjLowRes.current) paintAdjust(a, true);
+  };
+  const paintAdjust = (a: AdjState, final: boolean) => {
+    {
       const layer = layersRef.current.find((l) => l.id === a.layerId);
       if (!layer) return;
       const k = final ? 1 : Math.min(1, Math.sqrt(1_200_000 / (W * H)));
@@ -1480,8 +1491,9 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
         c.restore();
       } else c.drawImage(fx, 0, 0, W, H);
       markDirty(layer.id);
-      if (k < 1) adjFinal.current = window.setTimeout(() => { if (adjustRef.current === a || adjustRef.current?.params === a.params) renderDirect(adjustRef.current ?? a, true); }, 160);
-    });
+      adjLowRes.current = k < 1;
+      if (k < 1) adjFinal.current = window.setTimeout(() => { const cur = adjustRef.current; if (cur) paintAdjust(cur, true); }, 160);
+    }
   };
   /** Old call sites: set the swipe amount (and optionally params) of the running adjustment. */
   const applyAdjust = (value: number, params?: any) => {
@@ -1492,6 +1504,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
     setAdjust(next); renderDirect(next);
   };
   const endAdjust = (cancel: boolean) => {
+    if (!cancel) flushAdjust(); else { if (adjustFrame.current) cancelAnimationFrame(adjustFrame.current); window.clearTimeout(adjFinal.current); }
     const a = adjustRef.current;
     if (!a) return;
     setAdjMenu(null);
@@ -1561,6 +1574,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
   };
   const isPreviewOff = () => { const a = adjustRef.current; if (a) return a.hidden; const l = activeAdjLayer(); return l ? !l.visible : false; };
   const applyAdjStay = () => {
+    flushAdjust();
     const a = adjustRef.current;
     if (a) {
       // commit what's there, then keep adjusting on top of it

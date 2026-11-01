@@ -2387,3 +2387,11 @@ html.pp-theme-changing, html.pp-theme-changing *:not(canvas) {
 .pp-floater-body .pp-classic > .pp-gslider ~ .pp-gslider { display: none; }
 .pp-pal-float-grid .pp-pal-float-swatch { position: relative; overflow: hidden; padding: 0 !important; min-width: 0; min-height: 0; }
 .pp-pal-float-swatch > span { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
+
+/* Settings sliders: a proper 6px track and a 24px thumb (were hairline-thin) */
+.pp-set-slider input[type="range"] { height: 28px; width: 100%; }
+.pp-set-slider input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: color-mix(in srgb, var(--pp-ink) 16%, transparent); }
+.pp-set-slider input[type="range"]::-moz-range-track { height: 6px; border-radius: 999px; background: color-mix(in srgb, var(--pp-ink) 16%, transparent); }
+.pp-set-slider input[type="range"]::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--pp-active); }
+.pp-set-slider input[type="range"]::-webkit-slider-thumb { width: 24px; height: 24px; margin-top: -9px; background: oklch(1 0 0); border: 0; box-shadow: 0 0 0 .5px oklch(0 0 0 / .1), 0 3px 8px oklch(0 0 0 / .28); }
+.pp-set-slider input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; background: oklch(1 0 0); border: 0; box-shadow: 0 3px 8px oklch(0 0 0 / .28); }

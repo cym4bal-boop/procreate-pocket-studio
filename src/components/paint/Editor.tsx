@@ -2499,7 +2499,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
       if (kind === 'size') setSizes((s) => ({ ...s, [paintTool]: c })); else setOpacities((s) => ({ ...s, [paintTool]: c }));
       showPreview(kind, c);
     };
-    const KNOB = 28, INSET = 3;
+    const KNOB = 22, INSET = 2;
     const fromY = (el: HTMLElement, y: number) => { const r = el.getBoundingClientRect(); return 1 - (y - r.top - INSET - KNOB / 2) / (r.height - KNOB - INSET * 2); };
     const down = (e: RPE<HTMLDivElement>) => {
       if (sbBusy.current) return;
@@ -2550,7 +2550,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
           <span className="pp-bslider-fill" />
           <span className="pp-bslider-knob" />
           <span className={`pp-bslider-bubble ${active ? 'show' : ''}`} aria-hidden="true">
-            <b>{Math.round(value * 100)}</b><small>{active && sliderDrag?.fine ? 'fine' : kind === 'size' ? 'size' : 'opacity'}</small>
+            <small>{kind === 'size' ? 'Size' : 'Opacity'}</small><b>{Math.round(value * 100)}%</b>{active && sliderDrag?.fine ? <small>fine</small> : null}
           </span>
         </div>
         {kind === 'opacity' && <span className="pp-vlabel">{pct}</span>}

@@ -666,7 +666,7 @@ export function stampDab(
 
   // Position offsets: scatter, jitter lateral, jitter linear
   let x = d.x, y = d.y;
-  const scat = (brush.shapeScatter ?? brush.scatter ?? 0);
+  const scat = brush.scatter ?? 0;
   if (scat > 0) {
     x += (rnd() - 0.5) * size * scat * 2;
     y += (rnd() - 0.5) * size * scat * 2;
@@ -705,6 +705,7 @@ export function stampDab(
     const cy = count > 1 ? y + (rnd() - 0.5) * s * 0.5 : y;
     let rot = ((brush.shapeRotation ?? 0) * Math.PI) / 180 * (brush.shapeFollowStroke ? 1 : 0);
     if (brush.rotateRandom || brush.shapeRandomized) rot = rnd() * Math.PI * 2;
+    else if (brush.shapeScatter) rot += (rnd() - 0.5) * Math.PI * 2 * brush.shapeScatter;
     else if (brush.shapeFollowStroke) rot += dir;
     const fx = brush.shapeFlipX && rnd() < 0.5 ? -1 : 1;
     const fy = brush.shapeFlipY && rnd() < 0.5 ? -1 : 1;
@@ -757,7 +758,7 @@ export function drawBrushPreview(canvas: HTMLCanvasElement, brush: BrushDef, col
   const size = Math.min(h * 0.55, brush.maxSize * 0.5 + 6);
   // Imported minimum sizes are document pixels, not preview pixels.
   const previewBrush = { ...brush, minSize: Math.min(size, size * (brush.minSize ?? 1.5) / Math.max(1, brush.maxSize)) };
-  const extent = Math.ceil(size * (2 + (brush.shapeScatter ?? brush.scatter ?? 0) + .75 * ((brush.jitterLateral ?? 0) + (brush.jitterLinear ?? 0))));
+  const extent = Math.ceil(size * (2 + (brush.scatter ?? 0) * 2 + .75 * ((brush.jitterLateral ?? 0) + (brush.jitterLinear ?? 0))));
   const surface = document.createElement('canvas');
   surface.width = w + extent * 2; surface.height = h + extent * 2;
   const preview = surface.getContext('2d');

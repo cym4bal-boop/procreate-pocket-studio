@@ -1,0 +1,55 @@
+.pp-qm { position: fixed; inset: 0; z-index: 120; touch-action: none; }
+.pp-qm-ring { position: absolute; width: 0; height: 0; }
+.pp-qm-btn, .pp-qm-hub {
+  position: absolute; border-radius: 999px; color: var(--pp-ink);
+  background: var(--glass-surface); border: 1px solid var(--glass-line);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  box-shadow: var(--glass-shadow);
+}
+.pp-qm-btn {
+  width: 74px; height: 74px; left: -37px; top: -37px; display: grid; place-items: center; padding: 6px;
+  font-size: 11.5px; font-weight: 600; line-height: 1.15; text-align: center;
+  transform: translate(var(--qx), var(--qy));
+  animation: pp-qm-in 300ms cubic-bezier(.2,.9,.25,1.15) both;
+  transition: transform 180ms cubic-bezier(.2,.8,.2,1), opacity 180ms ease;
+  -webkit-touch-callout: none; user-select: none;
+}
+.pp-qm-btn:active { transform: translate(var(--qx), var(--qy)) scale(.92); }
+.pp-qm-btn.is-picking::before, .pp-qm-btn.is-chosen::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; background: color-mix(in srgb, var(--pp-active) 30%, transparent);
+  box-shadow: inset 0 0 0 2px var(--pp-active); pointer-events: none;
+}
+.pp-qm-btn span { position: relative; }
+.pp-qm-hub {
+  width: 92px; height: 92px; left: -46px; top: -46px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  animation: pp-qm-hub-in 260ms cubic-bezier(.2,.8,.2,1) both;
+}
+.pp-qm-hub small { font-size: 10px; opacity: .6; }
+.pp-qm-hub b { font-size: 13px; max-width: 78px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes pp-qm-in { from { opacity: 0; transform: translate(0, 0) scale(.4); } to { opacity: 1; transform: translate(var(--qx), var(--qy)); } }
+@keyframes pp-qm-hub-in { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+.pp-qm.is-closing .pp-qm-btn:not(.is-chosen) { opacity: 0; transform: translate(0, 0) scale(.5); }
+.pp-qm.is-closing .pp-qm-btn.is-chosen { transform: translate(var(--qx), var(--qy)) scale(1.12); opacity: 0; transition-duration: 200ms; }
+.pp-qm.is-closing .pp-qm-hub { opacity: 0; transform: scale(.7); transition: transform 180ms ease, opacity 180ms ease; }
+
+.pp-qm-panel {
+  position: absolute; width: 260px; max-height: 260px; overflow-y: auto; padding: 10px; border-radius: 24px; color: var(--pp-ink);
+  background: var(--glass-surface); border: 1px solid var(--glass-line);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  box-shadow: var(--glass-shadow); animation: pp-qm-hub-in 220ms cubic-bezier(.2,.8,.2,1) both;
+}
+.pp-qm-panel h3 { font-size: 13px; font-weight: 700; margin: 2px 6px 8px; }
+.pp-qm-list { display: flex; flex-direction: column; gap: 2px; }
+.pp-qm-list > button, .pp-qm-prof-name, .pp-qm-new { position: relative; text-align: left; padding: 9px 10px; border-radius: 12px; font-size: 14px; color: inherit; }
+.pp-qm-list > button.on::before, .pp-qm-prof.on .pp-qm-prof-name::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; background: color-mix(in srgb, var(--pp-active) 22%, transparent); pointer-events: none;
+}
+.pp-qm-prof { display: flex; align-items: center; gap: 4px; }
+.pp-qm-prof-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-qm-prof input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 12px; background: var(--glass-control); border: 1px solid var(--glass-line); color: inherit; font-size: 14px; }
+.pp-qm-mini { font-size: 12px; padding: 6px 8px; border-radius: 10px; opacity: .75; color: inherit; }
+.pp-qm-mini.danger { color: #ff453a; }
+.pp-qm-new { color: var(--pp-active); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .pp-qm-btn, .pp-qm-hub, .pp-qm-panel { animation: none !important; transition: none !important; } }

@@ -1,11 +1,13 @@
-/* QuickMenu: radial menu with six customizable buttons and switchable profiles.
- * Tap a button to run it; press-and-hold a button to change its action; tap the
- * centre to switch, create, rename or delete profiles. */
+/* QuickMenu (Procreate Pocket): six pill buttons around a central profile button.
+ * Tap a button to run it (menu closes); press-and-hold to open Set Action.
+ * Tap the centre for the QuickMenu profile list: + adds a profile with No Action,
+ * tap a profile to select it, double-tap its title to rename, hold it to delete. */
 import { useEffect, useRef, useState } from 'react';
 import { activeProfile, clampCentre, QUICK_ACTION_IDS, QUICK_ACTIONS, quickReducer, readQuick, SLOT_COUNT, writeQuick, type QuickAction, type QuickOp, type QuickState } from './quickmenu';
 import './quickmenu.css';
 
-const RADIUS = 104;
+// slot positions (top, upper right, lower right, bottom, lower left, upper left), in px from the centre
+const POS: [number, number][] = [[0, -98], [146, -50], [146, 50], [0, 98], [-146, 50], [-146, -50]];
 
 export function QuickMenu({ x, y, onRun, onClose }: { x: number; y: number; onRun: (a: QuickAction) => void; onClose: () => void }) {
   const [state, setState] = useState<QuickState>(() => readQuick());
@@ -15,14 +17,15 @@ export function QuickMenu({ x, y, onRun, onClose }: { x: number; y: number; onRu
   const [draft, setDraft] = useState('');
   const [closing, setClosing] = useState<null | number>(null);
   const hold = useRef<{ timer: number; fired: boolean } | null>(null);
+  const lastTap = useRef<{ id: string; t: number } | null>(null);
   const prof = activeProfile(state);
-  const c = clampCentre(x, y, RADIUS + 34, window.innerWidth, window.innerHeight);
+  const c = clampCentre(x, y, 150, window.innerWidth, window.innerHeight, 64);
 
   const apply = (op: QuickOp) => setState((s) => { const n = quickReducer(s, op); writeQuick(n); return n; });
   const close = (run?: QuickAction, slot = -1) => {
     if (closing !== null) return;
     setClosing(slot);
-    window.setTimeout(() => { onClose(); if (run) onRun(run); }, 200);
+    window.setTimeout(() => { onClose(); if (run && run !== 'none') onRun(run); }, 200);
   };
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
@@ -30,62 +33,71 @@ export function QuickMenu({ x, y, onRun, onClose }: { x: number; y: number; onRu
     return () => window.removeEventListener('keydown', k);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const startHold = (fn: () => void) => {
+    const h = { timer: 0, fired: false };
+    h.timer = window.setTimeout(() => { h.fired = true; fn(); }, 480);
+    hold.current = h;
+  };
+  const endHold = () => { const h = hold.current; hold.current = null; if (h) window.clearTimeout(h.timer); return h; };
+  const panelOpen = picking !== null || profiles;
+  const panelW = Math.min(300, window.innerWidth - 24);
 
   return (
     <div className={`pp-qm ${closing !== null ? 'is-closing' : ''}`} role="dialog" aria-label="QuickMenu"
-      onPointerDown={(e) => { if (e.target === e.currentTarget) close(); }}>
+      onPointerDown={(e) => { if (e.target === e.currentTarget) { if (panelOpen) { setPicking(null); setProfiles(false); setRenaming(null); } else close(); } }}>
       <div className="pp-qm-ring" style={{ left: c.x, top: c.y }}>
-        {prof.slots.slice(0, SLOT_COUNT).map((a, i) => {
-          const ang = -Math.PI / 2 + (i * Math.PI * 2) / SLOT_COUNT;
-          return (
-            <button key={i} type="button" className={`pp-qm-btn ${closing === i ? 'is-chosen' : ''} ${picking === i ? 'is-picking' : ''}`}
-              style={{ '--qx': `${Math.cos(ang) * RADIUS}px`, '--qy': `${Math.sin(ang) * RADIUS}px`, animationDelay: `${i * 22}ms` } as React.CSSProperties}
-              aria-label={`${QUICK_ACTIONS[a]} (hold to change)`}
-              onPointerDown={() => {
-                const h = { timer: 0, fired: false };
-                h.timer = window.setTimeout(() => { h.fired = true; setProfiles(false); setPicking(i); }, 480);
-                hold.current = h;
-              }}
-              onPointerUp={() => { const h = hold.current; hold.current = null; if (!h) return; window.clearTimeout(h.timer); if (!h.fired && picking === null) close(a, i); }}
-              onPointerLeave={() => { if (hold.current) { window.clearTimeout(hold.current.timer); hold.current = null; } }}
-              onContextMenu={(e) => e.preventDefault()}>
-              <span>{QUICK_ACTIONS[a]}</span>
-            </button>
-          );
-        })}
-        <button type="button" className="pp-qm-hub" aria-label={`Profile: ${prof.name}. Tap to manage profiles.`} onClick={() => { setPicking(null); setProfiles((v) => !v); }}>
-          <small>QuickMenu</small><b>{prof.name}</b>
+        {prof.slots.slice(0, SLOT_COUNT).map((a, i) => (
+          <button key={i} type="button" className={`pp-qm-btn ${closing === i || picking === i ? 'is-chosen' : ''} ${a === 'none' ? 'is-empty' : ''}`}
+            style={{ '--qx': `${POS[i]![0]}px`, '--qy': `${POS[i]![1]}px`, animationDelay: `${i * 22}ms` } as React.CSSProperties}
+            aria-label={`${QUICK_ACTIONS[a]} (hold to change)`}
+            onPointerDown={() => startHold(() => { setProfiles(false); setPicking(i); })}
+            onPointerUp={() => { const h = endHold(); if (h && !h.fired && !panelOpen) close(a, i); }}
+            onPointerLeave={() => endHold()}
+            onContextMenu={(e) => e.preventDefault()}>
+            <span>{QUICK_ACTIONS[a]}</span>
+          </button>
+        ))}
+        <button type="button" className="pp-qm-hub" aria-label={`${prof.name}. Tap to choose a QuickMenu profile.`} onClick={() => { setPicking(null); setProfiles((v) => !v); }}>
+          <span>{prof.name}</span>
         </button>
       </div>
 
-      {(picking !== null || profiles) && (
-        <div className="pp-qm-panel" style={{ left: Math.max(12, Math.min(window.innerWidth - 272, c.x - 130)), top: c.y + RADIUS + 46 > window.innerHeight - 260 ? Math.max(12, c.y - RADIUS - 300) : c.y + RADIUS + 46 }}
+      {panelOpen && (
+        <div className="pp-qm-panel" style={{ width: panelW, left: Math.max(12, Math.min(window.innerWidth - panelW - 12, c.x - panelW / 2)), top: Math.max(12, Math.min(window.innerHeight - 352, c.y - 150)) }}
           onPointerDown={(e) => e.stopPropagation()}>
           {picking !== null ? <>
-            <h3>Button {picking + 1}</h3>
+            <header><h3>Set Action</h3></header>
             <div className="pp-qm-list">
               {QUICK_ACTION_IDS.map((id) => (
                 <button key={id} type="button" className={prof.slots[picking] === id ? 'on' : ''} onClick={() => { apply({ type: 'assign', slot: picking, action: id }); setPicking(null); }}>{QUICK_ACTIONS[id]}</button>
               ))}
             </div>
           </> : <>
-            <h3>Profiles</h3>
+            <header><h3>QuickMenu</h3>
+              <button type="button" className="pp-qm-add" aria-label="Add QuickMenu profile" onClick={() => apply({ type: 'create' })}>
+                <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M12 4v16M4 12h16" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /></svg>
+              </button>
+            </header>
             <div className="pp-qm-list">
-              {state.profiles.map((p) => (
-                <div key={p.id} className={`pp-qm-prof ${p.id === state.active ? 'on' : ''}`}>
-                  {renaming === p.id ? (
-                    <input autoFocus value={draft} aria-label="Profile name" onChange={(e) => setDraft(e.target.value)}
-                      onBlur={() => { apply({ type: 'rename', id: p.id, name: draft }); setRenaming(null); }}
-                      onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setRenaming(null); }} />
-                  ) : (
-                    <button type="button" className="pp-qm-prof-name" onClick={() => apply({ type: 'switch', id: p.id })}>{p.name}</button>
-                  )}
-                  <button type="button" className="pp-qm-mini" aria-label={`Rename ${p.name}`} onClick={() => { setDraft(p.name); setRenaming(p.id); }}>Rename</button>
-                  {state.profiles.length > 1 && <button type="button" className="pp-qm-mini danger" aria-label={`Delete ${p.name}`} onClick={() => apply({ type: 'delete', id: p.id })}>Delete</button>}
-                </div>
+              {state.profiles.map((p) => renaming === p.id ? (
+                <input key={p.id} autoFocus className="pp-qm-rename" value={draft} aria-label="Profile name" onChange={(e) => setDraft(e.target.value)}
+                  onBlur={() => { apply({ type: 'rename', id: p.id, name: draft }); setRenaming(null); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setRenaming(null); }} />
+              ) : (
+                <button key={p.id} type="button" className={p.id === state.active ? 'on' : ''}
+                  onPointerDown={() => startHold(() => { if (state.profiles.length > 1 && window.confirm(`Delete ${p.name}?`)) apply({ type: 'delete', id: p.id }); })}
+                  onPointerUp={() => {
+                    const h = endHold(); if (h?.fired) return;
+                    const now = performance.now(), prev = lastTap.current;
+                    if (prev && prev.id === p.id && now - prev.t < 380) { lastTap.current = null; setDraft(p.name); setRenaming(p.id); return; }
+                    lastTap.current = { id: p.id, t: now };
+                    apply({ type: 'switch', id: p.id });
+                  }}
+                  onPointerLeave={() => endHold()}
+                  onContextMenu={(e) => e.preventDefault()}>{p.name}</button>
               ))}
-              <button type="button" className="pp-qm-new" onClick={() => { const id = `q${Date.now().toString(36)}`; apply({ type: 'create', id }); setDraft(`Profile ${state.profiles.length + 1}`); setRenaming(id); }}>+ New profile</button>
             </div>
+            <p className="pp-qm-hint">Double-tap a title to rename · hold to delete</p>
           </>}
         </div>
       )}

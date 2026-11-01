@@ -38,3 +38,15 @@
   .pp-lb-menu-enter { animation: none; }
 }
 .pp-adj-collapse[data-open="false"] { margin-top: -8px; }
+
+/* Procreate-style compact readout: name, amount in a circle, done tick — no extra caption line */
+.pp-adj { padding: 6px 8px 6px; gap: 6px; }
+.pp-adj-readout { min-height: 48px; padding: 0 0 0 14px; gap: 10px; }
+.pp-adj-title b { font-size: 15px; font-weight: 600; line-height: 1.2; }
+.pp-adj-amount {
+  width: 44px; height: 44px; flex: none; border-radius: 50%; display: grid; place-items: center; margin-left: auto;
+  font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--pp-ink) 9%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--pp-ink) 22%, transparent);
+}
+.pp-adj-amount + .pp-adj-tick { margin-left: 0; }
+.pp-adj-readout .pp-adj-tick { width: 44px; height: 44px; }

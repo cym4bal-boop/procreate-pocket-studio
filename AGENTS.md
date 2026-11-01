@@ -21,3 +21,5 @@
 - QuickMenu state goes through the pure quickReducer in quickmenu.ts (profiles of six slots), so assignments/profiles stay testable and valid.
 - Brush dabs take a seeded rng; strokes record their dabs so the end taper replays the identical stroke on release.
 - Live text layers keep their TextDraft in LayerMeta.text and block painting until explicitly rasterized.
+- Bundled pack brushes name built-in heads/textures without images; brush-heads.ts generates them procedurally and the engine stamps those canvases synchronously, so previews never wait on image decode.
+- Undo/redo stacks persist to IndexedDB after every push/undo/redo, but only after the stored history has loaded, so an early save can't overwrite it.

@@ -1,3 +1,4 @@
+import { headImage, headStyle, textureImage } from './brush-heads';
 import { parseAbr } from './abr';
 import JSZip from 'jszip';
 import type { BrushDef } from './brushes';
@@ -256,73 +257,74 @@ export function translateMyPaintBrush(obj: Record<string, any>, rawName = 'MyPai
 
 /**
  * Translates the dynamics-properties/stroke-properties JSON schema (brushes2.zip) into BrushDef.
+ * Heads/textures are named built-ins, rendered procedurally by brush-heads.ts.
+ * Expensive engine paths (canvas pickup, grain) only switch on when the source asks for them.
  */
 export function translateCustomJsonBrush(data: Record<string, any>, rawName = 'Custom Brush'): BrushDef {
   const stroke = data['stroke-properties'] || {};
-  const dynamics = data['dynamics-properties'] || {};
+  const dyn = data['dynamics-properties'] || {};
   const blend = data['blend-properties'] || {};
-  const texture = data['texture-properties'] || {};
+  const tex = data['texture-properties'] || {};
   const head = data['head-properties'] || {};
-  const jitter = data['jitter-properties'] || {};
-  const source = data['source-properties'] || {};
+  const jit = data['jitter-properties'] || {};
+  const src = data['source-properties'] || {};
+  const n = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+  const c01 = (v: number) => Math.max(0, Math.min(1, v));
 
   const name = data['display-name'] || rawName.replace(/\.json$/i, '').replace(/[-_]/g, ' ');
-  const flow = typeof blend['flow'] === 'number' ? blend['flow'] : 0.85;
-  const size = typeof stroke['paint-size'] === 'number' ? stroke['paint-size'] : 60;
-  const wetEdges = typeof stroke['wet-edges'] === 'number' ? stroke['wet-edges'] : 0;
-  const smudge = typeof blend['smudge-amount'] === 'number' ? blend['smudge-amount'] : 0;
-
-  const sizePres = Boolean(dynamics['pressure - effects size']);
-  const flowPres = Boolean(dynamics['pressure - effects flow']);
-  const grainVal = typeof texture['pressure'] === 'number' ? texture['pressure'] * 0.5 : 0;
-
-  // Categorize smartly based on name
-  let category = 'Pens';
-  const lower = name.toLowerCase();
-  if (lower.includes('pencil') || lower.includes('sketch')) category = 'Sketching';
-  else if (lower.includes('marker')) category = 'Markers';
-  else if (lower.includes('charcoal') || lower.includes('chalk')) category = 'Charcoals';
-  else if (lower.includes('ink') || lower.includes('pen')) category = 'Inks';
-  else if (lower.includes('paint') || lower.includes('oil')) category = 'Oils';
-  else if (lower.includes('airbrush') || lower.includes('spray')) category = 'Airbrushing';
-  else if (lower.includes('gouache') || lower.includes('water')) category = 'Gouache';
-  else category = 'Custom';
+  const headName = String(src['custom-head'] || src['head'] || '');
+  const texName = String(src['custom-stroke texture'] || src['stroke texture'] || '');
+  const style = headStyle(headName);
+  const sizePres = Boolean(dyn['pressure - effects size']);
+  const flowPres = Boolean(dyn['pressure - effects flow']);
+  const wet = Boolean(blend['mix-wet']);
+  const size = n(stroke['paint-size'], 40);
+  const hasTex = !!texName;
+  const softness = c01(n(head['softness'], 0.1));
 
   return sanitizeBrushDef({
     name,
-    category,
-    flow,
-    maxSize: Math.max(12, Math.min(320, size * 1.5)),
-    sizePressure: sizePres ? 0.75 : 0.1,
-    opacityPressure: flowPres ? 0.65 : 0,
-    pressureFlow: flowPres ? 0.65 : 0,
-    tiltOpacity: dynamics['tilt - effects flow'] ? 0.6 : 0,
-    tiltSize: dynamics['tilt - effects size'] ? 0.6 : 0,
-    speedSize: dynamics['velocity - effects size'] ? 0.5 : 0,
-    speedOpacity: dynamics['velocity - effects flow'] ? 0.5 : 0,
-    grain: grainVal,
-    grainScale: texture['scale'],
-    grainDepth: texture['pressure'],
-    wetEdges,
-    dilution: blend['mix-in dilution'],
-    charge: 1 - (blend['mix-in'] ?? 0),
-    pull: smudge,
-    smudge,
-    spacing: head['spacing'],
-    hardness: 1 - (head['softness'] ?? 0.15),
-    angle: (head['angle'] ?? 0) * 360,
-    roundness: /flat|oval/.test(source['head'] ?? '') ? 0.45 : 1,
-    orientToScreen: head['screen-aligned'],
-    shapeFollowStroke: head['use-trajectory'],
-    jitter: jitter['size'],
-    jitterOpacity: jitter['flow'],
-    scatter: jitter['scatter'],
-    shapeScatter: jitter['angle'],
-    stampColorJitter: jitter['color-hue'],
-    strokeColorJitter: jitter['color-start hue'],
-    streamline: (stroke['lazy-stroke'] ?? 0) * 100,
-    maxOpacity: stroke['paint-opacity'],
-    taper: stroke['has-size-profile'] ? 0.4 : 0,
+    category: 'Custom',
+    spacing: Math.max(0.02, Math.min(1.2, n(head['spacing'], 0.08))),
+    flow: Math.max(0.05, c01(n(head['flow'], 0.8))),
+    maxOpacity: Math.max(0.05, c01(n(stroke['paint-opacity'], 1))),
+    maxSize: Math.max(3, Math.min(400, Math.round(size * 1.3))),
+    hardness: style === 'soft' ? Math.min(0.2, 1 - softness) : 1 - softness,
+    roundness: style === 'oval' ? 0.32 : 1,
+    angle: n(head['angle'], 0) * 360,
+    tipImage: headImage(headName),
+    orientToScreen: !!head['screen-aligned'],
+    shapeFollowStroke: !!head['use-trajectory'],
+    shapeScatter: c01(n(jit['angle'], 0)),
+    rotateRandom: n(jit['angle'], 0) >= 0.5 && style !== 'oval',
+    scatter: c01(n(jit['scatter'], 0)),
+    jitter: c01(n(jit['size'], 0)),
+    jitterOpacity: c01(n(jit['flow'], 0)),
+    hueJitter: c01(n(jit['color-hue'], 0)),
+    saturationJitter: c01(n(jit['color-saturation'], 0)),
+    lightnessJitter: c01(n(jit['color-brightness'], 0)),
+    strokeHueJitter: c01(n(jit['color-start hue'], 0)),
+    sizePressure: sizePres ? 0.65 : 0,
+    opacityPressure: flowPres ? 0.55 : 0,
+    tiltOpacity: dyn['tilt - effects flow'] ? 0.3 : 0,
+    tiltSize: dyn['tilt - effects size'] ? 0.4 : 0,
+    speedSize: dyn['velocity - effects size'] ? -0.4 : 0,
+    speedOpacity: dyn['velocity - effects flow'] ? -0.3 : 0,
+    taper: sizePres ? 0.3 : 0.01,
+    taperSize: sizePres ? 0.8 : 0,
+    taperOpacity: 0,
+    // texturized grain is punched per dab, so it needs full depth and contrast to survive dab overlap
+    grain: hasTex ? Math.min(1, 0.8 + n(tex['pressure'], 0.5) * 0.2) : 0,
+    grainContrast: hasTex ? 0.9 : 0,
+    grainImage: hasTex ? textureImage(texName) : undefined,
+    grainScale: Math.max(0.1, Math.min(3, n(tex['scale'], 1))),
+    grainMode: 'texturized',
+    grainInverted: !!tex['invert'],
+    wetEdges: c01(n(stroke['wet-edges'], 0)),
+    dilution: wet ? c01(n(blend['mix-in dilution'], 0)) : 0,
+    pull: wet ? c01(n(blend['smudge-amount'], 0)) * 0.6 : 0,
+    smudge: 0,
+    streamline: Math.round(c01(n(stroke['lazy-stroke'], 0)) * 100),
   }, name);
 }
 

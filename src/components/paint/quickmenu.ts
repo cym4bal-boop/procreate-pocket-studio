@@ -2,6 +2,7 @@
  * named profiles. Pure state helpers + device-local persistence. */
 
 export const QUICK_ACTIONS = {
+  none: 'No Action',
   undo: 'Undo',
   redo: 'Redo',
   brush: 'Brush',
@@ -10,17 +11,18 @@ export const QUICK_ACTIONS = {
   select: 'Selection',
   transform: 'Transform',
   layers: 'Layers',
-  'new-layer': 'New Layer',
-  'clear-layer': 'Clear Layer',
-  'merge-down': 'Merge Down',
+  'new-layer': 'New layer',
+  'clear-layer': 'Clear layer',
+  'merge-down': 'Merge down',
+  'fill-layer': 'Fill layer',
   'duplicate-layer': 'Duplicate Layer',
   'alpha-lock': 'Alpha Lock',
   adjustments: 'Adjustments',
   colors: 'Colours',
-  'flip-h': 'Flip Horizontal',
-  'flip-v': 'Flip Vertical',
+  'flip-h': 'Flip horizontally',
+  'flip-v': 'Flip vertically',
   fit: 'Fit to Screen',
-  fullscreen: 'Full Screen',
+  fullscreen: 'Full screen',
   copy: 'Copy',
   paste: 'Paste',
   'copy-paste': 'Copy & Paste',
@@ -41,7 +43,8 @@ const KEY = 'pp.quickmenu';
 export const DEFAULT_QUICK: QuickState = {
   active: 'default',
   profiles: [
-    { id: 'default', name: 'Default', slots: ['undo', 'redo', 'new-layer', 'eraser', 'colors', 'adjustments'] },
+    // Procreate Pocket defaults; slot order = top, upper right, lower right, bottom, lower left, upper left
+    { id: 'default', name: 'QuickMenu 1', slots: ['new-layer', 'flip-h', 'copy', 'merge-down', 'clear-layer', 'flip-v'] },
   ],
 };
 
@@ -56,7 +59,7 @@ export function sanitizeQuick(v: unknown): QuickState {
     .map((p, i) => {
       const slots = (Array.isArray(p['slots']) ? p['slots'] : []).filter(valid).slice(0, SLOT_COUNT);
       while (slots.length < SLOT_COUNT) slots.push(DEFAULT_QUICK.profiles[0]!.slots[slots.length]!);
-      return { id: typeof p['id'] === 'string' ? (p['id'] as string) : `p${i}`, name: typeof p['name'] === 'string' && p['name'] ? (p['name'] as string) : `Profile ${i + 1}`, slots };
+      return { id: typeof p['id'] === 'string' ? (p['id'] as string) : `p${i}`, name: typeof p['name'] === 'string' && p['name'] ? (p['name'] as string) : `QuickMenu ${i + 1}`, slots };
     });
   if (!profiles.length) return structuredClone(DEFAULT_QUICK);
   const active = typeof raw.active === 'string' && profiles.some((p) => p.id === raw.active) ? raw.active : profiles[0]!.id;
@@ -79,8 +82,11 @@ export function quickReducer(s: QuickState, op: QuickOp): QuickState {
       return { ...s, profiles: s.profiles.map((p) => (p.id === cur.id ? { ...p, slots: p.slots.map((a, i) => (i === op.slot ? op.action : a)) } : p)) };
     case 'create': {
       const id = op.id ?? uid();
-      const name = (op.name ?? '').trim() || `Profile ${s.profiles.length + 1}`;
-      return { active: id, profiles: [...s.profiles, { id, name, slots: [...cur.slots] }] };
+      let k = s.profiles.length + 1;
+      while (s.profiles.some((p) => p.name === `QuickMenu ${k}`)) k++;
+      const name = (op.name ?? '').trim() || `QuickMenu ${k}`;
+      // a new profile starts with No Action on all six buttons (Procreate Pocket)
+      return { active: id, profiles: [{ id, name, slots: Array<QuickAction>(SLOT_COUNT).fill('none') }, ...s.profiles] };
     }
     case 'rename': {
       const name = op.name.trim();

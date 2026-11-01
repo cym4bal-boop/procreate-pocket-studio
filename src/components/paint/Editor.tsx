@@ -455,11 +455,19 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
       // undo/redo history survives leaving the canvas; never wipe stacks the user
       // already started building while the async load was in flight
       void loadHistory(artwork.id).then((h) => {
-        if (!h || cancelled) return;
-        if (undoStack.current.length > 0 || redoStack.current.length > 0) return;
-        undoStack.current = h.undo;
-        redoStack.current = h.redo;
-        setHistoryInfo({ undo: h.undo.length, redo: h.redo.length });
+        if (cancelled) return;
+        historyLoaded.current = true; // only now may saves replace the stored stacks
+        if (!h) { if (undoStack.current.length || redoStack.current.length) void saveHistory(artwork.id, undoStack.current, redoStack.current); return; }
+        if (undoStack.current.length > 0 || redoStack.current.length > 0) {
+          // edits made while loading are newer: keep them on top of the saved undo steps;
+          // the saved redo branch no longer applies once new edits exist
+          undoStack.current = [...h.undo, ...undoStack.current];
+          void saveHistory(artwork.id, undoStack.current, redoStack.current);
+        } else {
+          undoStack.current = h.undo;
+          redoStack.current = h.redo;
+        }
+        setHistoryInfo({ undo: undoStack.current.length, redo: redoStack.current.length });
       });
     })();
     return () => { cancelled = true; };
@@ -673,7 +681,10 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
     while (total > HISTORY_BYTES && undoStack.current.length > 1) total -= bytes(undoStack.current.shift()!);
     while (undoStack.current.length > Math.max(5, prefsRef.current.historyLimit || 60)) undoStack.current.shift();
     setHistoryInfo({ undo: undoStack.current.length, redo: 0 });
+    persistHistory();
   };
+  // Incremental, debounced IndexedDB write of both stacks (encoded snapshots are cached per entry).
+  const persistHistory = () => { if (!historyLoaded.current) return; void saveHistory(artwork.id, undoStack.current, redoStack.current); };
   const pushHistory = (ids: string[] = [], rect?: Rect) => pushEntry(capture(ids, rect));
   const restore = (e: HistEntry) => {
     const byId = new Map(layersRef.current.map((l) => [l.id, l]));
@@ -716,6 +727,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
     redoStack.current.push(inverseOf(e));
     restore(e);
     setHistoryInfo({ undo: undoStack.current.length, redo: redoStack.current.length });
+    persistHistory();
     flash('Undo');
   };
   const redo = () => {
@@ -726,11 +738,13 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
     undoStack.current.push(inverseOf(e));
     restore(e);
     setHistoryInfo({ undo: undoStack.current.length, redo: redoStack.current.length });
+    persistHistory();
     flash('Redo');
   };
 
   /* ---------- saving ---------- */
   const changedSinceOpen = useRef(false);
+  const historyLoaded = useRef(false);
   const bump = () => { changedSinceOpen.current = true; setVersion((v) => v + 1); requestRender(); scheduleSave(); };
   const markDirty = (id: string) => { dirty.current.add(id); bump(); };
   const scheduleSave = () => {
@@ -762,7 +776,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
     finishTransientModes();
     const a = await save();
     // keep the undo/redo stacks for next time, and snapshot a restorable backup
-    void saveHistory(artwork.id, undoStack.current, redoStack.current);
+    persistHistory();
     if (changedSinceOpen.current) void saveBackup(a);
     onExit(a);
   };
@@ -1437,17 +1451,34 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
   };
   const adjustFrame = useRef<number | undefined>(undefined);
   const adjScratch = useRef<HTMLCanvasElement | null>(null);
-  const renderDirect = (a: AdjState) => {
+  const adjFinal = useRef<number | undefined>(undefined);
+  const adjSmall = useRef<HTMLCanvasElement | null>(null);
+  /* While the value is moving, the effect runs on a downscaled copy (≤ ~1.2 MP) so swiping
+   * stays smooth on big canvases; ~160 ms after the last change it re-renders at full size. */
+  const adjLowRes = useRef(false);
+  const renderDirect = (a: AdjState, final = false) => {
     if (adjustFrame.current) cancelAnimationFrame(adjustFrame.current);
-    adjustFrame.current = requestAnimationFrame(() => {
+    window.clearTimeout(adjFinal.current);
+    adjustFrame.current = requestAnimationFrame(() => paintAdjust(a, final));
+  };
+  /** Before committing, make sure the layer holds the full-resolution result. */
+  const flushAdjust = () => {
+    const a = adjustRef.current;
+    if (adjustFrame.current) cancelAnimationFrame(adjustFrame.current);
+    window.clearTimeout(adjFinal.current);
+    if (a && adjLowRes.current) paintAdjust(a, true);
+  };
+  const paintAdjust = (a: AdjState, final: boolean) => {
+    {
       const layer = layersRef.current.find((l) => l.id === a.layerId);
       if (!layer) return;
-      // one reusable scratch canvas instead of a new full-size canvas every frame
-      let fx = adjScratch.current;
-      if (!fx || fx.width !== W || fx.height !== H) fx = adjScratch.current = makeCanvas(W, H);
+      const k = final ? 1 : Math.min(1, Math.sqrt(1_200_000 / (W * H)));
+      const w = Math.max(1, Math.round(W * k)), h = Math.max(1, Math.round(H * k));
+      let fx = k === 1 ? adjScratch.current : adjSmall.current;
+      if (!fx || fx.width !== w || fx.height !== h) { fx = makeCanvas(w, h); if (k === 1) adjScratch.current = fx; else adjSmall.current = fx; }
       const fc = ctx2d(fx);
-      fc.clearRect(0, 0, W, H);
-      fc.drawImage(a.base, 0, 0);
+      fc.clearRect(0, 0, w, h);
+      fc.drawImage(a.base, 0, 0, w, h);
       if (!a.hidden) applyCanvasEffect(fx, a.name, layerValueOf(a.name, a.params), a.params);
       const c = ctx2d(layer.canvas);
       c.clearRect(0, 0, W, H);
@@ -1456,11 +1487,13 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
         c.save();
         c.clip(selectionRef.current.path, 'evenodd');
         c.clearRect(0, 0, W, H);
-        c.drawImage(fx, 0, 0);
+        c.drawImage(fx, 0, 0, W, H);
         c.restore();
-      } else c.drawImage(fx, 0, 0);
+      } else c.drawImage(fx, 0, 0, W, H);
       markDirty(layer.id);
-    });
+      adjLowRes.current = k < 1;
+      if (k < 1) adjFinal.current = window.setTimeout(() => { const cur = adjustRef.current; if (cur) paintAdjust(cur, true); }, 160);
+    }
   };
   /** Old call sites: set the swipe amount (and optionally params) of the running adjustment. */
   const applyAdjust = (value: number, params?: any) => {
@@ -1471,6 +1504,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
     setAdjust(next); renderDirect(next);
   };
   const endAdjust = (cancel: boolean) => {
+    if (!cancel) flushAdjust(); else { if (adjustFrame.current) cancelAnimationFrame(adjustFrame.current); window.clearTimeout(adjFinal.current); }
     const a = adjustRef.current;
     if (!a) return;
     setAdjMenu(null);
@@ -1540,6 +1574,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
   };
   const isPreviewOff = () => { const a = adjustRef.current; if (a) return a.hidden; const l = activeAdjLayer(); return l ? !l.visible : false; };
   const applyAdjStay = () => {
+    flushAdjust();
     const a = adjustRef.current;
     if (a) {
       // commit what's there, then keep adjusting on top of it
@@ -1784,6 +1819,8 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
       case 'guide': void runAction('guide'); break;
       case 'add-text': void runAction('add-text'); break;
       case 'export-png': void runAction('export-png'); break;
+      case 'fill-layer': layerAction(id, 'fill'); break;
+      case 'none': break;
     }
   };
   const runAction = async (a: ActionId) => {
@@ -2202,6 +2239,23 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
     }
   };
 
+  /* QuickMenu double tap: two quick one-finger taps open the menu; the dots those
+   * taps painted are reverted silently (no redo entry), as if they never happened. */
+  const lastTap = useRef<{ t: number; x: number; y: number; undoLen: number } | null>(null);
+  const maybeQuickMenuTap = (x: number, y: number) => {
+    if (!prefsRef.current.quickMenu) return;
+    const now = performance.now(), prev = lastTap.current;
+    if (prev && now - prev.t < 360 && Math.hypot(x - prev.x, y - prev.y) < 44) {
+      lastTap.current = null;
+      const keep = Math.max(0, prev.undoLen - 1);
+      while (undoStack.current.length > keep) { const en = undoStack.current.pop(); if (en) restore(en); }
+      setHistoryInfo({ undo: undoStack.current.length, redo: redoStack.current.length });
+      persistHistory();
+      openQuickMenu(x, y);
+      return;
+    }
+    lastTap.current = { t: now, x, y, undoLen: undoStack.current.length };
+  };
   const onPointerUp = (e: RPE<HTMLCanvasElement>) => {
     const had = pointers.current.get(e.pointerId);
     pointers.current.delete(e.pointerId);
@@ -2244,7 +2298,13 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
       if (e.type === 'pointerup') closeWindows();
       return;
     }
-    if (m === 'draw') endStroke();
+    if (m === 'draw') {
+      const st = stroke.current;
+      const tapLike = !!st && performance.now() - st.started < 260 && st.travelled * view.current.scale < 10;
+      endStroke();
+      if (tapLike) maybeQuickMenuTap(e.clientX, e.clientY);
+      else lastTap.current = null;
+    }
     else if (m === 'eyedrop') {
       if (loupe) { pickColor(loupe.color); commitRecent(loupe.color); }
       setLoupe(null);
@@ -2460,7 +2520,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
       if (kind === 'size') setSizes((s) => ({ ...s, [paintTool]: c })); else setOpacities((s) => ({ ...s, [paintTool]: c }));
       showPreview(kind, c);
     };
-    const KNOB = 28, INSET = 3;
+    const KNOB = 22, INSET = 2;
     const fromY = (el: HTMLElement, y: number) => { const r = el.getBoundingClientRect(); return 1 - (y - r.top - INSET - KNOB / 2) / (r.height - KNOB - INSET * 2); };
     const down = (e: RPE<HTMLDivElement>) => {
       if (sbBusy.current) return;
@@ -2511,7 +2571,7 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
           <span className="pp-bslider-fill" />
           <span className="pp-bslider-knob" />
           <span className={`pp-bslider-bubble ${active ? 'show' : ''}`} aria-hidden="true">
-            <b>{Math.round(value * 100)}</b><small>{active && sliderDrag?.fine ? 'fine' : kind === 'size' ? 'size' : 'opacity'}</small>
+            <small>{kind === 'size' ? 'Size' : 'Opacity'}</small><b>{Math.round(value * 100)}%</b>{active && sliderDrag?.fine ? <small>fine</small> : null}
           </span>
         </div>
         {kind === 'opacity' && <span className="pp-vlabel">{pct}</span>}

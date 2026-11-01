@@ -327,6 +327,7 @@ function seeded(seed: number) {
   return () => ((s = (s * 16807) % 2147483647) / 2147483647);
 }
 
+import { proceduralCanvas } from './brush-heads';
 const headImages = new Map<string, HTMLImageElement>();
 const headKey = (src?: string) => (src ? `${src.length}:${src.slice(-24)}` : '');
 /** Loads a custom head image; resolves once it can be stamped. */
@@ -342,9 +343,10 @@ export function loadBrushHead(src: string): Promise<void> {
   });
 }
 
-function drawHead(ctx: CanvasRenderingContext2D, img: HTMLImageElement, px: number) {
-  const s = Math.min(px / img.naturalWidth, px / img.naturalHeight);
-  const w = img.naturalWidth * s, h = img.naturalHeight * s;
+function drawHead(ctx: CanvasRenderingContext2D, img: HTMLImageElement | HTMLCanvasElement, px: number) {
+  const iw = (img as HTMLImageElement).naturalWidth || img.width, ih = (img as HTMLImageElement).naturalHeight || img.height;
+  const s = Math.min(px / iw, px / ih);
+  const w = iw * s, h = ih * s;
   ctx.drawImage(img, (px - w) / 2, (px - h) / 2, w, h);
   const data = ctx.getImageData(0, 0, px, px);
   const d = data.data;
@@ -367,9 +369,10 @@ function tipShape(brush: BrushDef, px = TIP) {
   c.width = c.height = px;
   const ctx = c.getContext('2d')!;
   const r = px / 2;
-  const head = brush.tipImage ? headImages.get(headKey(brush.tipImage)) : undefined;
+  const proc = proceduralCanvas(brush.tipImage);
+  const head: HTMLImageElement | HTMLCanvasElement | undefined = proc ?? (brush.tipImage ? headImages.get(headKey(brush.tipImage)) : undefined);
   if (brush.tipImage && !head) void loadBrushHead(brush.tipImage);
-  if (head?.complete && head.naturalWidth) {
+  if (head && (proc || ((head as HTMLImageElement).complete && (head as HTMLImageElement).naturalWidth))) {
     ctx.save();
     ctx.translate(r, r); ctx.rotate((brush.angle * Math.PI) / 180); ctx.scale(1, brush.roundness); ctx.translate(-r, -r);
     const tmp = document.createElement('canvas'); tmp.width = tmp.height = px;
@@ -534,6 +537,8 @@ let proceduralGrain: HTMLCanvasElement | null = null;
 /** Grain source: the brush's own Grain.png, else a paper-like procedural texture. */
 function grainSource(brush: BrushDef): HTMLCanvasElement | HTMLImageElement {
   if (brush.grainImage) {
+    const pc = proceduralCanvas(brush.grainImage);
+    if (pc) return pc;
     const k = headKey(brush.grainImage);
     let img = grainImages.get(k);
     if (!img) { img = new Image(); img.crossOrigin = 'anonymous'; img.src = brush.grainImage; grainImages.set(k, img); }
@@ -666,7 +671,7 @@ export function stampDab(
 
   // Position offsets: scatter, jitter lateral, jitter linear
   let x = d.x, y = d.y;
-  const scat = (brush.shapeScatter ?? brush.scatter ?? 0);
+  const scat = brush.scatter ?? 0;
   if (scat > 0) {
     x += (rnd() - 0.5) * size * scat * 2;
     y += (rnd() - 0.5) * size * scat * 2;
@@ -705,6 +710,7 @@ export function stampDab(
     const cy = count > 1 ? y + (rnd() - 0.5) * s * 0.5 : y;
     let rot = ((brush.shapeRotation ?? 0) * Math.PI) / 180 * (brush.shapeFollowStroke ? 1 : 0);
     if (brush.rotateRandom || brush.shapeRandomized) rot = rnd() * Math.PI * 2;
+    else if (brush.shapeScatter) rot += (rnd() - 0.5) * Math.PI * 2 * brush.shapeScatter;
     else if (brush.shapeFollowStroke) rot += dir;
     const fx = brush.shapeFlipX && rnd() < 0.5 ? -1 : 1;
     const fy = brush.shapeFlipY && rnd() < 0.5 ? -1 : 1;
@@ -757,7 +763,7 @@ export function drawBrushPreview(canvas: HTMLCanvasElement, brush: BrushDef, col
   const size = Math.min(h * 0.55, brush.maxSize * 0.5 + 6);
   // Imported minimum sizes are document pixels, not preview pixels.
   const previewBrush = { ...brush, minSize: Math.min(size, size * (brush.minSize ?? 1.5) / Math.max(1, brush.maxSize)) };
-  const extent = Math.ceil(size * (2 + (brush.shapeScatter ?? brush.scatter ?? 0) + .75 * ((brush.jitterLateral ?? 0) + (brush.jitterLinear ?? 0))));
+  const extent = Math.ceil(size * (2 + (brush.scatter ?? 0) * 2 + .75 * ((brush.jitterLateral ?? 0) + (brush.jitterLinear ?? 0))));
   const surface = document.createElement('canvas');
   surface.width = w + extent * 2; surface.height = h + extent * 2;
   const preview = surface.getContext('2d');

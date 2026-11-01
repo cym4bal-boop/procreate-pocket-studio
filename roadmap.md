@@ -13,3 +13,13 @@
 - [x] Toolbar no longer moves when folded and reopened
 - [ ] Liquid Glass audit of the remaining menus (gallery settings done)
 - [ ] Wider performance work and animation audit beyond what's above
+
+## Round 5
+- [x] Library replaced with the uploaded brushes2.zip pack; settings re-translated (no fake scatter, no needless grain/pickup), procedural heads + textures
+- [x] QuickMenu: Prefs toggle, double-tap to open, Procreate default six, No Action, profile list (+, double-tap rename, tap select)
+- [x] Floating classic picker gets a hue control; floating palette shows swatches
+- [x] Size/opacity side sliders recreated Procreate-style
+- [x] Settings sliders thicker
+- [x] Adjustments: value shown in a circle instead of a slider, tighter spacing
+- [x] Undo/redo history persisted per canvas in IndexedDB (undo + redo stacks)
+- [x] Adjustment lag

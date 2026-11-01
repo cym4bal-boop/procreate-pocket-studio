@@ -224,13 +224,11 @@ export function AdjustmentPanel({ name, params, onChange, onBegin, onDone, isLay
         ? <div className="pp-adj-collapse" data-open={open} aria-hidden={!open}><div className="pp-adj-collapse-inner"><div className="pp-adj-body">{body}</div></div></div>
         : <div className="pp-adj-body">{body}</div>)}
       <div className="pp-adj-readout">
-        <div className="pp-adj-title">
-          <small>{isLayer ? 'Adjustment layer' : name === 'Gradient Map' || showMeter ? 'Slide on the canvas' : 'Adjustment'}</small>
+        <div className="pp-adj-title" title={isLayer ? 'Adjustment layer' : 'Slide on the canvas to change the amount'}>
           <b>{adjustLabel(name)}</b>
         </div>
-        {showMeter && <>
-          <SwipeControl label="Amount" value={pct} onBegin={begin} onChange={(v) => set({ amount: v })} />
-        </>}
+        {/* Procreate: the amount lives in a circle; you change it by sliding on the canvas */}
+        {showMeter && <span className="pp-adj-amount" role="status" aria-label={`Amount ${pct}%`}>{pct}%</span>}
         <button type="button" className="pp-adj-tick" aria-label={isLayer ? 'Done' : 'Apply adjustment'} onClick={onDone}><Check size={22} strokeWidth={2.6} /></button>
       </div>
     </div>

@@ -12,7 +12,7 @@ it('uses the provided Pencil spacing and softness rather than one universal stam
   const brush = translateCustomJsonBrush(preset.data);
   expect(brush.spacing).toBeCloseTo(0.077778697);
   expect(brush.hardness).toBeCloseTo(0.796874985);
-  expect(brush.flow).toBe(0.5);
+  expect(brush.flow).toBeCloseTo(0.4017);
 });
 it('maps actual Procreate Plain Stitch archive spacing and pressure', () => {
   const brush = translateProcreateBrush({ name: 'Plain Stitch', plotSpacing: 0.5507699847, dynamicsPressureSize: 0, maxSize: 0.492417991, tipImage: 'data:image/png;base64,AAAA' });
@@ -72,4 +72,13 @@ it('falls back to Procreate defaults and never crashes on odd values', () => {
   expect(brush.shapeCount).toBe(1);
   expect(brush.grain).toBe(0);
   expect(brush.grainMode).toBe('texturized');
+});
+
+it('pack brushes only pay for canvas pickup when they are wet and keep angle jitter as rotation, not scatter', async () => {
+  const { translateCustomJsonBrush } = await import('@/components/paint/brush-translator');
+  const b = translateCustomJsonBrush({ 'blend-properties': { 'smudge-amount': 0.5, 'mix-wet': false }, 'jitter-properties': { angle: 0.5, scatter: 0.08 }, 'head-properties': { flow: 0.4 } }, 'x.json');
+  expect(b.pull).toBe(0);
+  expect(b.scatter).toBeCloseTo(0.08);
+  expect(b.shapeScatter).toBe(0.5);
+  expect(b.grain).toBe(0);
 });

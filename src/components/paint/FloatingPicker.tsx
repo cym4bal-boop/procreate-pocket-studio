@@ -246,12 +246,15 @@ function PaletteFloat({ p, size }: { p: Props; size: number }) {
             size="paint"
             type="button"
             aria-label={`Swatch ${c}`}
-            style={{ background: c }}
+            className="pp-pal-float-swatch"
             onClick={() => {
               p.onChange(c);
               p.onCommit();
             }}
-          />
+          >
+            {/* the paint button reset strips backgrounds, so the colour lives on a child */}
+            <span style={{ background: c }} />
+          </Button>
         ))}
       </div>
     </div>

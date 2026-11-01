@@ -2378,3 +2378,12 @@ input[type=range]::-moz-range-thumb { box-sizing:border-box; width:var(--pp-rang
 html.pp-theme-changing, html.pp-theme-changing *:not(canvas) {
   transition: background-color 320ms cubic-bezier(.2,.8,.2,1), color 320ms cubic-bezier(.2,.8,.2,1), border-color 320ms cubic-bezier(.2,.8,.2,1), fill 320ms ease, stroke 320ms ease, box-shadow 320ms ease !important;
 }
+
+/* Floating (picture-in-picture) pickers: classic keeps its hue strip inside the square;
+   palette swatches paint through a child span. */
+.pp-floater-body .pp-classic { height: 100%; display: flex !important; flex-direction: column; gap: 10px; justify-content: flex-start !important; }
+.pp-floater-body .pp-classic > .pp-sv { flex: 1; min-height: 0; height: auto !important; width: 100%; border-radius: 14px; }
+.pp-floater-body .pp-classic > .pp-gslider { width: 100% !important; margin: 0 !important; flex: none; }
+.pp-floater-body .pp-classic > .pp-gslider ~ .pp-gslider { display: none; }
+.pp-pal-float-grid .pp-pal-float-swatch { position: relative; overflow: hidden; padding: 0 !important; min-width: 0; min-height: 0; }
+.pp-pal-float-swatch > span { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }

@@ -5,13 +5,16 @@ import { resetPrefs, writePrefs, type Prefs } from './settings';
 
 const RENDER: (keyof Prefs)[] = ['lowLatency', 'colorMode', 'gamma', 'deepColor'];
 const WORKFLOW: (keyof Prefs)[] = ['rotateCanvas', 'showLayerChanges', 'edgeDetect', 'layerNameSpeed'];
-const GESTURES: (keyof Prefs)[] = ['gTapUndo', 'gTapRedo', 'gScrubClear', 'gSwipeCopy', 'gFullscreen', 'gQuickPinch', 'quickMenuGesture'];
+const GESTURES: (keyof Prefs)[] = ['gTapUndo', 'gTapRedo', 'gScrubClear', 'gSwipeCopy', 'gFullscreen', 'gQuickPinch', 'quickMenuGesture', 'quickMenu'];
 const BRUSH: (keyof Prefs)[] = ['drawCursor', 'shapeDetection', 'curvePressure', 'curveVelocity', 'curveTilt'];
 
 export function CanvasPrefs({ prefs, onPrefs }: { prefs: Prefs; onPrefs: (p: Prefs) => void }) {
   const set = (patch: Partial<Prefs>) => onPrefs(writePrefs(patch));
   return (
     <div className="pp-canvas-prefs">
+      <PrefSection label="QuickMenu">
+        <PrefToggle label="QuickMenu (double tap)" on={prefs.quickMenu} onChange={(v) => set({ quickMenu: v })} />
+      </PrefSection>
       <PrefSection label="Rendering">
         <PrefCycle label="Low-Latency Mode" value={prefs.lowLatency} options={['active', 'off'] as const} onChange={(v) => set({ lowLatency: v })} />
         <PrefCycle label="Color mode" value={prefs.colorMode} options={['standard', 'vivid', 'muted'] as const} onChange={(v) => set({ colorMode: v })} />

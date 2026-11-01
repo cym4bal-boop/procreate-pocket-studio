@@ -2216,6 +2216,23 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
     }
   };
 
+  /* QuickMenu double tap: two quick one-finger taps open the menu; the dots those
+   * taps painted are reverted silently (no redo entry), as if they never happened. */
+  const lastTap = useRef<{ t: number; x: number; y: number; undoLen: number } | null>(null);
+  const maybeQuickMenuTap = (x: number, y: number) => {
+    if (!prefsRef.current.quickMenu) return;
+    const now = performance.now(), prev = lastTap.current;
+    if (prev && now - prev.t < 360 && Math.hypot(x - prev.x, y - prev.y) < 44) {
+      lastTap.current = null;
+      const keep = Math.max(0, prev.undoLen - 1);
+      while (undoStack.current.length > keep) { const en = undoStack.current.pop(); if (en) restore(en); }
+      setHistoryInfo({ undo: undoStack.current.length, redo: redoStack.current.length });
+      persistHistory();
+      openQuickMenu(x, y);
+      return;
+    }
+    lastTap.current = { t: now, x, y, undoLen: undoStack.current.length };
+  };
   const onPointerUp = (e: RPE<HTMLCanvasElement>) => {
     const had = pointers.current.get(e.pointerId);
     pointers.current.delete(e.pointerId);
@@ -2258,7 +2275,13 @@ export function Editor({ artwork, onExit, onSaved }: { artwork: Artwork; onExit:
       if (e.type === 'pointerup') closeWindows();
       return;
     }
-    if (m === 'draw') endStroke();
+    if (m === 'draw') {
+      const st = stroke.current;
+      const tapLike = !!st && performance.now() - st.started < 260 && st.travelled * view.current.scale < 10;
+      endStroke();
+      if (tapLike) maybeQuickMenuTap(e.clientX, e.clientY);
+      else lastTap.current = null;
+    }
     else if (m === 'eyedrop') {
       if (loupe) { pickColor(loupe.color); commitRecent(loupe.color); }
       setLoupe(null);

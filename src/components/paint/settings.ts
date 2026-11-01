@@ -75,6 +75,8 @@ export type Prefs = {
   gFullscreen: boolean;     // four-finger tap: full screen
   gQuickPinch: boolean;     // quick pinch: fit canvas to screen
   quickMenuGesture: 'three-swipe-up' | 'four-hold' | 'off';
+  /** QuickMenu enabled (Actions → Prefs); opens with a one-finger double tap */
+  quickMenu: boolean;
   // brush settings (canvas-only)
   drawCursor: boolean;
   shapeDetection: boolean;
@@ -116,6 +118,7 @@ export const DEFAULT_PREFS: Prefs = {
   gFullscreen: true,
   gQuickPinch: true,
   quickMenuGesture: 'three-swipe-up',
+  quickMenu: false,
   drawCursor: false,
   shapeDetection: true,
   curvePressure: 'linear',

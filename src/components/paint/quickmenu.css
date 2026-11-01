@@ -10,14 +10,14 @@
 .pp-qm-btn {
   width: 128px; height: 54px; left: -64px; top: -27px; display: grid; place-items: center; padding: 0 12px;
   font-size: 15px; font-weight: 500; line-height: 1.1; text-align: center; white-space: nowrap; overflow: hidden;
-  transform: translate(var(--qx), var(--qy));
+  margin-left: var(--qx); margin-top: var(--qy);
   animation: pp-qm-in 300ms cubic-bezier(.2,.9,.25,1.15) both;
   transition: transform 180ms cubic-bezier(.2,.8,.2,1), opacity 180ms ease;
   -webkit-touch-callout: none; user-select: none;
 }
 .pp-qm-btn span { position: relative; text-overflow: ellipsis; overflow: hidden; max-width: 100%; }
 .pp-qm-btn.is-empty { color: color-mix(in srgb, var(--pp-ink) 55%, transparent); }
-.pp-qm-btn:active { transform: translate(var(--qx), var(--qy)) scale(.94); }
+.pp-qm-btn:active { transform: scale(.94); }
 .pp-qm-btn.is-chosen::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--pp-active); pointer-events: none; }
 .pp-qm-btn.is-chosen { color: #fff; }
 .pp-qm-hub {
@@ -26,10 +26,10 @@
   animation: pp-qm-hub-in 260ms cubic-bezier(.2,.8,.2,1) both;
 }
 .pp-qm-hub span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-@keyframes pp-qm-in { from { opacity: 0; transform: translate(0, 0) scale(.4); } to { opacity: 1; transform: translate(var(--qx), var(--qy)); } }
+@keyframes pp-qm-in { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: none; } }
 @keyframes pp-qm-hub-in { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
-.pp-qm.is-closing .pp-qm-btn:not(.is-chosen) { opacity: 0; transform: translate(0, 0) scale(.5); }
-.pp-qm.is-closing .pp-qm-btn.is-chosen { transform: translate(var(--qx), var(--qy)) scale(1.12); opacity: 0; transition-duration: 200ms; }
+.pp-qm.is-closing .pp-qm-btn:not(.is-chosen) { opacity: 0; transform: scale(.5); }
+.pp-qm.is-closing .pp-qm-btn.is-chosen { transform: scale(1.12); opacity: 0; transition-duration: 200ms; }
 .pp-qm.is-closing .pp-qm-hub { opacity: 0; transform: scale(.7); transition: transform 180ms ease, opacity 180ms ease; }
 
 .pp-qm-panel {

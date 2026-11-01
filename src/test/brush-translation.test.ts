@@ -56,7 +56,7 @@ it('maps Procreate Brush Studio keys one-to-one', () => {
   expect(brush.charge).toBe(0.8);
   expect(brush.dilution).toBe(0.35);
   expect(brush.attack).toBe(0.45);
-  expect(brush.flow).toBeCloseTo(0.4017);
+  expect(brush.flow).toBe(0.5);
   expect(brush.wetEdges).toBe(0.15);
   expect(brush.burntEdges).toBe(0.25);
   expect(brush.sizePressure).toBe(0.9);
@@ -72,4 +72,13 @@ it('falls back to Procreate defaults and never crashes on odd values', () => {
   expect(brush.shapeCount).toBe(1);
   expect(brush.grain).toBe(0);
   expect(brush.grainMode).toBe('texturized');
+});
+
+it('pack brushes only pay for canvas pickup when they are wet and keep angle jitter as rotation, not scatter', async () => {
+  const { translateCustomJsonBrush } = await import('@/components/paint/brush-translator');
+  const b = translateCustomJsonBrush({ 'blend-properties': { 'smudge-amount': 0.5, 'mix-wet': false }, 'jitter-properties': { angle: 0.5, scatter: 0.08 }, 'head-properties': { flow: 0.4 } }, 'x.json');
+  expect(b.pull).toBe(0);
+  expect(b.scatter).toBeCloseTo(0.08);
+  expect(b.shapeScatter).toBe(0.5);
+  expect(b.grain).toBe(0);
 });
